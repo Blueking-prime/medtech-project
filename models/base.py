@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """ Base module
 """
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import TypeVar, List, Iterable
 from os import path
 import json

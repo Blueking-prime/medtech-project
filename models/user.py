@@ -1,17 +1,23 @@
 #!/usr/bin/env python3
 '''User module'''
 import hashlib
-from models.base import Base
+from models.base import Base, datetime, timedelta, TIMESTAMP_FORMAT
 
 
 class AlreadyExists(Exception):
-    '''Raised if the user already exists'''
+    '''Raised if the item already exists'''
 
     def __init__(self, *args: object) -> None:
         super().__init__(*args)
 
 class DoesNotExist(Exception):
-    '''Raised if the user doesn't exist'''
+    '''Raised if the item doesn't exist'''
+
+    def __init__(self, *args: object) -> None:
+        super().__init__(*args)
+
+class NoPermission(Exception):
+    '''Raised if the user doesn't have the required permissions'''
 
     def __init__(self, *args: object) -> None:
         super().__init__(*args)
@@ -27,7 +33,8 @@ class User(Base):
         super().__init__(*args, **kwargs)
         self._email = kwargs.get('_email')
         self._password = kwargs.get('_password')
-        self.role = None
+        self.medication = kwargs.get('medication')
+        self.role = kwargs.get('role')
         self.first_name = kwargs.get('first_name')
         self.last_name = kwargs.get('last_name')
         self.session_id = None
@@ -61,6 +68,60 @@ class User(Base):
         else:
             self._password = hashlib.sha256(pwd.encode()).hexdigest().lower()
 
+    def update_medication(self, medication: dict, password: str):
+        '''Sets the user's medication parameters
+
+        template = {
+            'drug_name': [
+                'dose',
+                'time between doses (hours)',
+                'max total doses [optional]',
+                'date medication was issued [optional]
+            ],
+        }
+        '''
+        if self.is_valid_password(password):
+            if not self.medication:
+                self.medication = dict()
+            for k, v in medication.items():
+                if v[3]:
+                    date_issued = datetime.strptime(v[3], TIMESTAMP_FORMAT)
+                else:
+                    date_issued = datetime.utcnow()
+
+                if v[2]:
+                    end_date = date_issued + timedelta(
+                            days=(int(v[1]) * int(v[2])/24)
+                        )
+                    max_doses = int(v[2])
+                else:
+                    end_date = None
+                    max_doses = None
+
+                self.medication.update({
+                        k: {
+                            'dose': int(v[0]),
+                            'time_between_dosage': int(v[1]),
+                            'max_doses': max_doses,
+                            'date_issued': date_issued,
+                            'end_date': end_date
+                        }
+                    })
+
+            self.save()
+        else:
+            raise NoPermission()
+
+    def remove_medication(self, drug_name: str, password: str):
+        '''Removes a medication from the users medications'''
+        try:
+            if self.is_valid_password(password):
+                self.medication.pop(drug_name)
+            else:
+                raise NoPermission
+        except KeyError:
+            raise DoesNotExist('This drug isn\'t part of the users medication')
+
     def is_valid_password(self, pwd: str) -> bool:
         """ Validate a password
         """
@@ -86,9 +147,21 @@ class User(Base):
         else:
             return "{} {}".format(self.first_name, self.last_name)
 
-if __name__ == '__main__':
-    User.load_from_file()
+    def to_json(self, for_serialization: bool = False) -> dict:
+        '''Overloads to_json to convert med dates to serializable formats'''
+        res_dict = super().to_json(for_serialization)
+        for i in res_dict['medication']:
+            date_issued = res_dict['medication'][i].get('date_issued')
+            if type(date_issued) is datetime:
+                res_dict['medication'][i]['date_issued'] = date_issued.strftime(TIMESTAMP_FORMAT)
+            end_date = res_dict['medication'][i].get('end_date')
+            if type(end_date) is datetime:
+                res_dict['medication'][i]['end_date'] = end_date.strftime(TIMESTAMP_FORMAT)
 
+        return res_dict
+
+
+if __name__ == '__main__':
     user_email = "bob@hbtn.io"
     user_clear_pwd = "H0lbertonSchool98!"
 
@@ -98,7 +171,19 @@ if __name__ == '__main__':
     print("New user: {}".format(user.id))
     print('Display name: {}'.format(user.display_name()))
     print('Hashed password: {}\n'.format(user.password))
+
+    drug_template = {
+            'Covid pill': [
+                '2',
+                '8',
+                '9',
+                ''
+            ],
+        }
+
+    user.update_medication(drug_template, user_clear_pwd)
     print(user.to_json())
+    print('--------------------------')
     print(user.__dict__)
     # user.save()
 
