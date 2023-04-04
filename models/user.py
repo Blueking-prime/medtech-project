@@ -32,6 +32,7 @@ class User(Base):
         """
         super().__init__(*args, **kwargs)
         self._email = kwargs.get('_email')
+        self._phone_number = kwargs.get('_phone_number')
         self._password = kwargs.get('_password')
         self.medication = kwargs.get('medication')
         self.role = kwargs.get('role')
@@ -150,13 +151,14 @@ class User(Base):
     def to_json(self, for_serialization: bool = False) -> dict:
         '''Overloads to_json to convert med dates to serializable formats'''
         res_dict = super().to_json(for_serialization)
-        for i in res_dict['medication']:
-            date_issued = res_dict['medication'][i].get('date_issued')
-            if type(date_issued) is datetime:
-                res_dict['medication'][i]['date_issued'] = date_issued.strftime(TIMESTAMP_FORMAT)
-            end_date = res_dict['medication'][i].get('end_date')
-            if type(end_date) is datetime:
-                res_dict['medication'][i]['end_date'] = end_date.strftime(TIMESTAMP_FORMAT)
+        if res_dict['medication'] is not None:
+            for i in res_dict['medication']:
+                date_issued = res_dict['medication'][i].get('date_issued')
+                if type(date_issued) is datetime:
+                    res_dict['medication'][i]['date_issued'] = date_issued.strftime(TIMESTAMP_FORMAT)
+                end_date = res_dict['medication'][i].get('end_date')
+                if type(end_date) is datetime:
+                    res_dict['medication'][i]['end_date'] = end_date.strftime(TIMESTAMP_FORMAT)
 
         return res_dict
 

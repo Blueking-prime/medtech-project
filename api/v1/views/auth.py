@@ -20,6 +20,7 @@ def login() -> tuple[str, int]:
     data = request.get_json()
     email = data.get('email')
     password = data.get('password')
+    print(email, password)
     validity = AUTH.valid_login(email, password)
     if validity:
         session_id = AUTH.create_session(email)

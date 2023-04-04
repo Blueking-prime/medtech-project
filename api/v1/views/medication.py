@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 '''Module of auth routes'''
 from flask import jsonify, abort, request
-from api.v1.auth.user import User
+from api.v1.auth.user_data import User
 from api.v1.views import app_views
 
 
@@ -17,18 +17,16 @@ def view_one_users_meds(user_id: str = None) -> str:
     if user_id is None:
         abort(404)
     if user_id == 'me':
-        if request.current_user is None:
-            abort(404)
-        else:
-            user: User = request.current_user
-            if user is None:
-                abort(404)
-            if user.medication is None:
-                abort(404)
-            return jsonify(user.to_json().get('medication'))
+        try:
+            user = request.current_user
+        except AttributeError:
+            user = None
+    else:
+        user: User = User.get(user_id)
 
-    user: User = User.get(user_id)
     if user is None:
+        abort(404)
+    if user.medication is None:
         abort(404)
     return jsonify(user.to_json().get('medication'))
 
@@ -48,7 +46,15 @@ def delete_user_meds(user_id: str = None, drug_name: str = None) -> str:
     """
     if user_id is None:
         abort(404)
-    user: User = User.get(user_id)
+
+    if user_id == 'me':
+        try:
+            user = request.current_user
+        except AttributeError:
+            user = None
+    else:
+        user: User = User.get(user_id)
+
     if user is None:
         abort(404)
     rj = None
@@ -77,7 +83,7 @@ def delete_user_meds(user_id: str = None, drug_name: str = None) -> str:
 
 @app_views.route('/meds/<user_id>', methods=['POST', 'PUT'], strict_slashes=False)
 def create_or_update_med_entry(user_id: str = None) -> str:
-    """ POST /api/v1/users/
+    """ POST or PUT /api/v1/users/
     JSON body:
       - password
       - med_data ie. {
@@ -95,7 +101,15 @@ def create_or_update_med_entry(user_id: str = None) -> str:
     """
     if user_id is None:
         abort(404)
-    user: User = User.get(user_id)
+
+    if user_id == 'me':
+        try:
+            user = request.current_user
+        except AttributeError:
+            user = None
+    else:
+        user: User = User.get(user_id)
+
     if user is None:
         abort(404)
 
